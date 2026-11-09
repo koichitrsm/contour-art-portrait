@@ -16,15 +16,6 @@ A portrait-oriented interactive art app for smartphones.
 - `sw.js` — offline cache
 - `README.md` — this guide
 
-## Publish with GitHub Pages
-1. Extract this ZIP.
-2. Upload all four files to the root of your GitHub repository.
-3. Open Settings → Pages.
-4. Select `Deploy from a branch`, branch `main`, folder `/ (root)`, then Save.
-5. Open the published URL on your smartphone.
-
-## Add to iPhone Home Screen
-Open the published URL in Safari, tap Share, then choose “Add to Home Screen”.
 
 ## Note
 The 3D view is a simulated perspective projection rendered with Canvas. Please test the published app on your smartphone.
