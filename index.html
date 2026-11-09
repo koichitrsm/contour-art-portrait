@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#ffffff">
+<meta name="description" content="3回のタップで海と森林の3D鳥瞰地形へ変化する縦長インタラクティブアート">
+<link rel="manifest" href="./manifest.webmanifest">
+<title>CONTOUR ART — Portrait Terrain</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#fff;color:#222;font-family:Arial,"Noto Sans JP",sans-serif}
+#app{height:100dvh;display:flex;flex-direction:column;padding:12px 12px max(10px,env(safe-area-inset-bottom));gap:9px}
+header,footer{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-shrink:0}
+header{font-size:14px;letter-spacing:.12em;font-weight:600}
+#count{font-size:12px;letter-spacing:0;color:#777;font-weight:400}
+#stage{position:relative;flex:1;min-height:0;border:1px solid #e8e8e8;border-radius:12px;overflow:hidden;background:#fff;touch-action:manipulation}
+canvas{display:block;width:100%;height:100%}
+#hint{position:absolute;left:8px;right:8px;bottom:12px;text-align:center;font-size:12px;color:#999;pointer-events:none}
+footer{font-size:10px;color:#888;letter-spacing:.08em}
+button{border:1px solid #ccc;background:#fff;border-radius:999px;padding:9px 17px;color:#333;font-size:13px}
+button:active{background:#eee}
+</style>
+</head>
+<body>
+<div id="app">
+<header><span>CONTOUR ART</span><span id="count">Peaks 0 / 3</span></header>
+<div id="stage"><canvas id="canvas"></canvas><div id="hint">Tap anywhere to add a peak</div></div>
+<footer><span>SEA · FOREST · 15 CONTOURS</span><button id="reset">RESET</button></footer>
+</div>
+<script>
+(()=>{
+const canvas=document.getElementById('canvas'),ctx=canvas.getContext('2d');
+const count=document.getElementById('count'),hint=document.getElementById('hint'),reset=document.getElementById('reset');
+let peaks=[],trees=[],W=0,H=0,raf=0,progress=0,start=0,fade=0,mode='draw';
+const N=38,levels=15,stops=[[0,[153,215,232]],[.12,[185,229,237]],[.25,[205,231,218]],[.42,[164,194,151]],[.62,[126,160,116]],[.8,[190,180,130]],[1,[226,211,166]]];
+const mix=(a,b,t)=>a+(b-a)*t;
+function color(t){for(let i=1;i<stops.length;i++)if(t<=stops[i][0]){const [a,ca]=stops[i-1],[b,cb]=stops[i],u=(t-a)/(b-a);return ca.map((v,j)=>Math.round(mix(v,cb[j],u)));}return stops[stops.length-1][1];}
+function heightAt(x,y){let v=0;for(const p of peaks){const dx=(x-p.x)/Math.max(90,W*.29),dy=(y-p.y)/Math.max(90,H*.29),a=Math.atan2(dy,dx),r=Math.hypot(dx,dy),w=1+.10*Math.sin(a*3+p.seed)+.055*Math.sin(a*7-p.seed*1.7)+.035*Math.cos(a*11+p.seed);v+=Math.exp(-2*Math.pow(r/w,2));}return v;}
+function project(x,y,z,t){return [W/2+(x-W/2)*(1-.18*t)+(y-H/2)*.34*t,H*.53+(y-H/2)*(1-.48*t)-z*H*.52*t];}
+function makeTrees(max){trees=[];let seed=93821;const rand=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};let tries=0;while(trees.length<420&&tries<10000){tries++;const x=rand()*W,y=rand()*H,z=heightAt(x,y)/max;if(z>.20&&z<.70)trees.push({x,y,z,h:.035+rand()*.065,w:.55+rand()*.8,lean:(rand()-.5)*2.2});}}
+function drawTrees(t){if(!trees.length||t<=0)return;ctx.save();ctx.globalAlpha=Math.min(1,t*2.1)*(1-fade);for(const tr of trees){const a=project(tr.x,tr.y,tr.z,t),b=project(tr.x+tr.lean,tr.y,tr.z+tr.h,t);ctx.beginPath();ctx.moveTo(...a);ctx.lineTo(...b);ctx.strokeStyle='#20251f';ctx.lineWidth=tr.w;ctx.lineCap='round';ctx.stroke();}ctx.restore();}
+function lineContours(t,max){const sx=W/N,sy=H/N;ctx.save();ctx.globalAlpha=1-fade;ctx.strokeStyle='#252923';ctx.lineWidth=1.05;ctx.lineCap='round';for(let level=1;level<=levels;level++){const target=max*level/(levels+1);ctx.beginPath();for(let j=0;j<N;j++)for(let i=0;i<N;i++){const x=i*sx,y=j*sy,v=[heightAt(x,y),heightAt(x+sx,y),heightAt(x+sx,y+sy),heightAt(x,y+sy)],pts=[];const edge=(a,b,ax,ay,bx,by)=>{if((v[a]<target)!==(v[b]<target)){const f=(target-v[a])/(v[b]-v[a]);pts.push([mix(ax,bx,f),mix(ay,by,f)]);}};edge(0,1,x,y,x+sx,y);edge(1,2,x+sx,y,x+sx,y+sy);edge(2,3,x+sx,y+sy,x,y+sy);edge(3,0,x,y+sy,x,y);const seg=(a,b)=>{const p=project(...a,target/max,t),q=project(...b,target/max,t);ctx.moveTo(...p);ctx.lineTo(...q);};if(pts.length===2)seg(pts[0],pts[1]);else if(pts.length===4){seg(pts[0],pts[1]);seg(pts[2],pts[3]);}}ctx.stroke();}ctx.restore();}
+function render(){ctx.clearRect(0,0,W,H);ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);if(!peaks.length)return;let max=0;for(let j=0;j<=N;j++)for(let i=0;i<=N;i++)max=Math.max(max,heightAt(i*W/N,j*H/N));max=max||1;const t=mode==='draw'?0:progress;if(t>0){ctx.save();ctx.globalAlpha=Math.min(1,t*1.7)*(1-fade);const dx=W/N,dy=H/N;for(let j=0;j<N;j++)for(let i=0;i<N;i++){const x=i*dx,y=j*dy,corners=[[x,y],[x+dx,y],[x+dx,y+dy],[x,y+dy]],vals=corners.map(p=>heightAt(p[0],p[1])),z=vals.reduce((a,b)=>a+b,0)/4,c=color(Math.min(1,z/max)),pts=corners.map((p,n)=>project(p[0],p[1],vals[n]/max,t));ctx.fillStyle=`rgb(${c[0]},${c[1]},${c[2]})`;ctx.beginPath();ctx.moveTo(...pts[0]);for(let n=1;n<4;n++)ctx.lineTo(...pts[n]);ctx.closePath();ctx.fill();ctx.strokeStyle='rgba(75,91,67,.08)';ctx.lineWidth=.45;ctx.stroke();}ctx.restore();}drawTrees(t);lineContours(t,max);if(mode==='draw')peaks.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,3,0,Math.PI*2);ctx.fillStyle='#171717';ctx.fill();});}
+function animate(){if(mode!=='transform'&&mode!=='fade')return;const elapsed=performance.now()-start;if(mode==='transform'){progress=Math.min(1,elapsed/1700);if(progress>=1){mode='fade';start=performance.now();}}else fade=Math.min(1,(performance.now()-start)/3000);render();if(fade>=1){mode='draw';peaks=[];trees=[];progress=0;fade=0;count.textContent='Peaks 0 / 3';hint.textContent='Tap anywhere to add a peak';render();return;}raf=requestAnimationFrame(animate);}
+function resize(){const r=canvas.getBoundingClientRect(),d=Math.min(devicePixelRatio||1,2);W=r.width;H=r.height;canvas.width=Math.round(W*d);canvas.height=Math.round(H*d);ctx.setTransform(d,0,0,d,0,0);render();}
+canvas.addEventListener('pointerdown',e=>{if(mode!=='draw'||peaks.length>=3)return;const r=canvas.getBoundingClientRect();peaks.push({x:e.clientX-r.left,y:e.clientY-r.top,seed:peaks.length*2.31+.7});count.textContent=`Peaks ${peaks.length} / 3`;if(peaks.length<3){hint.textContent='Tap to add the next peak';render();}else{let max=0;for(let j=0;j<=N;j++)for(let i=0;i<=N;i++)max=Math.max(max,heightAt(i*W/N,j*H/N));makeTrees(max||1);hint.textContent='Transforming into a 3D sea and forest landscape';mode='transform';start=performance.now();progress=0;fade=0;animate();}});
+reset.addEventListener('click',()=>{cancelAnimationFrame(raf);peaks=[];trees=[];mode='draw';progress=0;fade=0;count.textContent='Peaks 0 / 3';hint.textContent='Tap anywhere to add a peak';render();});
+if('ResizeObserver'in window)new ResizeObserver(resize).observe(canvas);else window.addEventListener('resize',resize);resize();
+if('serviceWorker'in navigator&&location.protocol.startsWith('http'))window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+})();
+</script>
+</body>
+</html>

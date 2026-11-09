@@ -1,0 +1,11 @@
+{
+  "name": "CONTOUR ART — Portrait Terrain",
+  "short_name": "CONTOUR ART",
+  "description": "A mobile art app that transforms contour lines into a 3D sea and forest landscape",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "orientation": "portrait",
+  "icons": []
+}
